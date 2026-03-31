@@ -32,38 +32,36 @@ app.post('/api/ai-planner', async (req, res) => {
       return res.status(400).json({ error: "Prompt is required" });
     }
 
-    // Using Gemini via Google API directly
-    const apiKey = process.env.GEMINI_API_KEY;
+    // Using OpenRouter API
+    const apiKey = process.env.OPENROUTER_API_KEY || 'sk-1234ijkl5678mnop1234ijkl5678mnop1234ijkl';
     
     if (!apiKey) {
       return res.status(500).json({ error: "API key not configured" });
     }
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 2048,
-          }
-        }),
-      }
-    );
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://pace-ecommerce-fixed.vercel.app",
+        "X-Title": "PACE Ecommerce"
+      },
+      body: JSON.stringify({
+        model: "openai/gpt-4o-mini",
+        messages: [{ role: "user", content: prompt }]
+      }),
+    });
 
     const data = await response.json();
 
     if (!response.ok) {
-      console.error("Gemini API error:", data);
+      console.error("OpenRouter API error:", data);
       return res.status(response.status).json({ error: data.error?.message || "AI error" });
     }
 
-    return res.status(200).json(data);
+    const text = data.choices?.[0]?.message?.content || '';
+    return res.status(200).json({ candidates: [{ content: { parts: [{ text }] } }] });
   } catch (err: any) {
     console.error("AI Planner error:", err);
     return res.status(500).json({ error: "Failed to generate AI response" });

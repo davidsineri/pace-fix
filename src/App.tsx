@@ -252,7 +252,7 @@ function Home() {
             onClick={() => document.getElementById('catalog')?.scrollIntoView({ behavior: 'smooth' })}
             className="md:col-span-2 md:row-span-2 relative rounded-[32px] overflow-hidden group cursor-pointer"
           >
-            <img src="https://images.unsplash.com/photo-1501854140801-50d01698950b?q=80&w=800&auto=format&fit=crop" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" referrerPolicy="no-referrer" />
+            <img src="https://cdn.cimahikota.go.id//images/article/e77bf82fca1759fe2b3693e02356210e.jpg" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" referrerPolicy="no-referrer" />
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent p-8 flex flex-col justify-end">
               <h4 className="text-3xl font-black text-white italic mb-2">NOKEN</h4>
               <p className="text-stone-300 mb-4">Tas tradisional serat kayu alami.</p>

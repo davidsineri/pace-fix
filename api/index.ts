@@ -33,7 +33,7 @@ app.post('/api/ai-planner', async (req, res) => {
     }
 
     // Using OpenRouter API
-    const apiKey = process.env.OPENROUTER_API_KEY || 'sk-1234ijkl5678mnop1234ijkl5678mnop1234ijkl';
+    const apiKey = process.env.OPENROUTER_API_KEY || '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';
     
     if (!apiKey) {
       return res.status(500).json({ error: "API key not configured" });

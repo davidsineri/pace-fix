@@ -90,7 +90,8 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
-app.post('/api/ai-itinerary', async (req, res) => {
+// AI Routes - itinerary (plural)
+app.post('/api/ai/itinerary', async (req, res) => {
   try {
     const { days, interests, budget, origin } = req.body;
     const apiKey = process.env.GEMINI_API_KEY;
@@ -104,6 +105,80 @@ app.post('/api/ai-itinerary', async (req, res) => {
     res.json({ itinerary: response.data.candidates?.[0]?.content?.parts?.[0]?.text || 'Itinerary' });
   } catch (error) {
     handleError(res, error, "Itinerary error");
+  }
+});
+
+// AI Routes - chat
+app.post('/api/ai/chat', async (req, res) => {
+  try {
+    const { message } = req.body;
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) throw new Error("No API key");
+    
+    const response = await axios.post(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      { contents: [{ parts: [{ text: message }] }] }
+    );
+    res.json({ reply: response.data.candidates?.[0]?.content?.parts?.[0]?.text || 'OK' });
+  } catch (error) {
+    handleError(res, error, "Chat error");
+  }
+});
+
+// AI Routes - smart-search
+app.post('/api/ai/smart-search', async (req, res) => {
+  try {
+    const { query, products } = req.body;
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) throw new Error("No API key");
+    
+    const prompt = `Dari produk berikut: ${JSON.stringify(products)}, cari yang cocok dengan "${query}". Berikan ID produk yang cocok dalam format array JSON.`;
+    const response = await axios.post(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      { contents: [{ parts: [{ text: prompt }] }] }
+    );
+    
+    // Parse response to extract IDs
+    const text = response.data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const ids = text.match(/["']([^"']+)["']/g)?.map(s => s.replace(/["']/g, '')) || [];
+    res.json({ ids });
+  } catch (error) {
+    handleError(res, error, "Search error");
+  }
+});
+
+// AI Routes - describe-product
+app.post('/api/ai/describe-product', async (req, res) => {
+  try {
+    const { imageUrl } = req.body;
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) throw new Error("No API key");
+    
+    const prompt = `Deskripsikan produk dari gambar ini dalam bahasa Indonesia yang menarik untuk ecommerce.`;
+    const response = await axios.post(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      { contents: [{ parts: [{ text: prompt }] }] }
+    );
+    res.json({ description: response.data.candidates?.[0]?.content?.parts?.[0]?.text || '' });
+  } catch (error) {
+    handleError(res, error, "Describe error");
+  }
+});
+
+// AI Routes - packaging-advice
+app.post('/api/ai/packaging-advice', async (req, res) => {
+  try {
+    const { question } = req.body;
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) throw new Error("No API key");
+    
+    const response = await axios.post(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      { contents: [{ parts: [{ text: question }] }] }
+    );
+    res.json({ advice: response.data.candidates?.[0]?.content?.parts?.[0]?.text || '' });
+  } catch (error) {
+    handleError(res, error, "Advice error");
   }
 });
 

@@ -18,36 +18,59 @@ const snap = new midtransClient.Snap({
   clientKey: process.env.MIDTRANS_CLIENT_KEY || ''
 });
 
-const OPENROUTER_API_KEY = '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';
-
-async function getAIResponse(prompt: string, systemPrompt?: string) {
-  const messages: any[] = [];
-  if (systemPrompt) messages.push({ role: 'system', content: systemPrompt });
-  messages.push({ role: 'user', content: prompt });
-
-  const response = await axios.post(
-    'https://openrouter.ai/api/v1/chat/completions',
-    {
-      model: 'openai/gpt-4o-mini',
-      messages
-    },
-    {
-      headers: {
-        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://pace-ecommerce-fixed.vercel.app',
-        'X-Title': 'PACE Ecommerce'
-      }
-    }
-  );
-  return response.data.choices?.[0]?.message?.content || '';
-}
-
 function handleError(res: any, error: any, message: string) {
   console.error(message, error);
   return res.status(500).json({ error: message, details: error?.message || error });
 }
 
+// ========== AI PLANNER SERVERLESS ==========
+app.post('/api/ai-planner', async (req, res) => {
+  try {
+    const { prompt } = req.body;
+    
+    if (!prompt) {
+      return res.status(400).json({ error: "Prompt is required" });
+    }
+
+    // Using Gemini via Google API directly
+    const apiKey = process.env.GEMINI_API_KEY;
+    
+    if (!apiKey) {
+      return res.status(500).json({ error: "API key not configured" });
+    }
+
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 2048,
+          }
+        }),
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error("Gemini API error:", data);
+      return res.status(response.status).json({ error: data.error?.message || "AI error" });
+    }
+
+    return res.status(200).json(data);
+  } catch (err: any) {
+    console.error("AI Planner error:", err);
+    return res.status(500).json({ error: "Failed to generate AI response" });
+  }
+});
+
+// ========== PRODUCTS ==========
 app.get('/api/products', async (req, res) => {
   try {
     const { data, error } = await supabase.from('products').select('*');
@@ -85,6 +108,7 @@ app.get('/api/attractions', async (req, res) => {
   } catch (error) { res.json([]); }
 });
 
+// ========== PAYMENTS ==========
 app.post('/api/create-payment', async (req, res) => {
   try {
     const { orderId, amount, itemDetails } = req.body;
@@ -99,74 +123,7 @@ app.post('/api/create-payment', async (req, res) => {
   }
 });
 
-app.post('/api/chat', async (req, res) => {
-  try {
-    const { message } = req.body;
-    const reply = await getAIResponse(message, 'Kamu adalah asisten tourism Papua yang helpful.');
-    res.json({ reply });
-  } catch (error) {
-    handleError(res, error, "Chat error");
-  }
-});
-
-app.post('/api/ai/itinerary', async (req, res) => {
-  try {
-    const { days, interests, budget, origin } = req.body;
-    const prompt = `Buat itinerary perjalanan ${days} hari di Papua Indonesia dengan minat ${interests} dan budget ${budget}${origin ? ` dari ${origin}` : ''}. Berikan detail setiap hari termasuk tempat wisata, aktivitas, makanan lokal, dan tips perjalanan dalam bahasa Indonesia yang menarik.`;
-    const itinerary = await getAIResponse(prompt);
-    res.json({ itinerary });
-  } catch (error) {
-    handleError(res, error, "Itinerary error");
-  }
-});
-
-app.post('/api/ai/chat', async (req, res) => {
-  try {
-    const { message, history, productsContext } = req.body;
-    let prompt = message;
-    if (productsContext?.length > 0) {
-      prompt += `\n\nProduk yang tersedia: ${JSON.stringify(productsContext.map((p: any) => ({ id: p.id, name: p.name, price: p.price })))}`;
-    }
-    const reply = await getAIResponse(prompt, 'Kamu adalah asisten tourism dan ecommerce Papua yang helpful. Jika ada produkContext, rekomendasikan produk yang cocok.');
-    res.json({ reply });
-  } catch (error) {
-    handleError(res, error, "Chat error");
-  }
-});
-
-app.post('/api/ai/smart-search', async (req, res) => {
-  try {
-    const { query, products } = req.body;
-    const prompt = `Dari produk berikut: ${JSON.stringify(products)}, cari yang cocok dengan "${query}". Berikan ID produk yang cocok dalam format array JSON sederhana, contoh: ["id1","id2"]`;
-    const text = await getAIResponse(prompt);
-    const ids = text.match(/[""]([^""]+)[""]/g)?.map((s: string) => s.replace(/[""]/g, '')) || [];
-    res.json({ ids });
-  } catch (error) {
-    handleError(res, error, "Search error");
-  }
-});
-
-app.post('/api/ai/describe-product', async (req, res) => {
-  try {
-    const { imageUrl } = req.body;
-    const prompt = `Deskripsikan produk dari gambar ini dalam bahasa Indonesia yang menarik untuk ecommerce.`;
-    const description = await getAIResponse(prompt);
-    res.json({ description });
-  } catch (error) {
-    handleError(res, error, "Describe error");
-  }
-});
-
-app.post('/api/ai/packaging-advice', async (req, res) => {
-  try {
-    const { question } = req.body;
-    const advice = await getAIResponse(question, 'Kamu adalah ahli packaging produk Papua. Berikan advice dalam bahasa Indonesia.');
-    res.json({ advice });
-  } catch (error) {
-    handleError(res, error, "Advice error");
-  }
-});
-
+// ========== COMMUNITY ==========
 app.get('/api/posts', async (req, res) => {
   try {
     const { data } = await supabase.from('posts').select('*').order('created_at', { ascending: false });
@@ -185,6 +142,7 @@ app.post('/api/posts', async (req, res) => {
   }
 });
 
+// ========== ORDERS ==========
 app.get('/api/orders', async (req, res) => {
   try {
     const { userId } = req.query;

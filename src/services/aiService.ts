@@ -1,14 +1,11 @@
-// aiService.ts
-// Semua panggilan AI sudah dipindah ke backend (/api/ai/*).
-// File ini hanya berisi fungsi helper yang memanggil endpoint tersebut.
-// API key Gemini TIDAK pernah ada di frontend.
-
 export async function generateTravelItinerary(days: number, interests: string, budget: string, originCity?: string): Promise<string> {
-  const res = await fetch('/api/ai/itinerary', {
+  const prompt = `Buat itinerary perjalanan ${days} hari di Papua Indonesia dengan minat ${interests} dan budget ${budget}${originCity ? ` dari ${originCity}` : ''}. Berikan detail setiap hari termasuk tempat wisata, aktivitas, makanan lokal, dan tips perjalanan dalam bahasa Indonesia yang menarik.`;
+
+  const res = await fetch('/api/ai-planner', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ days, interests, budget, originCity }),
-    signal: AbortSignal.timeout(60_000), // timeout 60 detik
+    body: JSON.stringify({ prompt }),
+    signal: AbortSignal.timeout(60_000),
   });
 
   if (!res.ok) {
@@ -17,7 +14,7 @@ export async function generateTravelItinerary(days: number, interests: string, b
   }
 
   const data = await res.json();
-  return data.itinerary;
+  return data.candidates?.[0]?.content?.parts?.[0]?.text || 'Maaf, itinerary tidak dapat dibuat.';
 }
 
 export async function chatWithAgent(
@@ -25,10 +22,15 @@ export async function chatWithAgent(
   history: { role: string; text: string }[] = [],
   productsContext: any[] = []
 ): Promise<string> {
-  const res = await fetch('/api/ai/chat', {
+  let prompt = message;
+  if (productsContext?.length > 0) {
+    prompt += `\n\nProduk yang tersedia: ${JSON.stringify(productsContext.map((p: any) => ({ id: p.id, name: p.name, price: p.price })))}`;
+  }
+
+  const res = await fetch('/api/ai-planner', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message, history, productsContext }),
+    body: JSON.stringify({ prompt }),
     signal: AbortSignal.timeout(30_000),
   });
 
@@ -38,34 +40,10 @@ export async function chatWithAgent(
   }
 
   const data = await res.json();
-  return data.reply;
+  return data.candidates?.[0]?.content?.parts?.[0]?.text || 'Maaf, saya tidak dapat menjawab saat ini.';
 }
 
 export async function smartSearchProducts(query: string, products: any[]): Promise<any[]> {
-  try {
-    const res = await fetch('/api/ai/smart-search', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query, products }),
-      signal: AbortSignal.timeout(15_000),
-    });
-
-    if (!res.ok) return fallbackSearch(query, products);
-
-    const data = await res.json();
-    const ids: string[] = data.ids || [];
-    if (ids.length === 0) return fallbackSearch(query, products);
-
-    return ids
-      .map((id: string) => products.find((p: any) => p.id === id))
-      .filter(Boolean);
-  } catch {
-    return fallbackSearch(query, products);
-  }
-}
-
-// Fallback pencarian teks biasa jika AI gagal
-function fallbackSearch(query: string, products: any[]): any[] {
   const q = query.toLowerCase();
   return products.filter(p =>
     p.name?.toLowerCase().includes(q) ||
@@ -75,10 +53,12 @@ function fallbackSearch(query: string, products: any[]): any[] {
 }
 
 export async function generateProductDescription(imageUrl: string): Promise<string> {
-  const res = await fetch('/api/ai/describe-product', {
+  const prompt = `Deskripsikan produk dari gambar ini dalam bahasa Indonesia yang menarik untuk ecommerce.`;
+
+  const res = await fetch('/api/ai-planner', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ imageUrl }),
+    body: JSON.stringify({ prompt }),
     signal: AbortSignal.timeout(30_000),
   });
 
@@ -88,14 +68,16 @@ export async function generateProductDescription(imageUrl: string): Promise<stri
   }
 
   const data = await res.json();
-  return data.description || '';
+  return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
 }
 
 export async function getPackagingAdvice(question: string): Promise<string> {
-  const res = await fetch('/api/ai/packaging-advice', {
+  const prompt = `Kamu adalah ahli packaging produk Papua. Berikan advice dalam bahasa Indonesia untuk pertanyaan ini: ${question}`;
+
+  const res = await fetch('/api/ai-planner', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ question }),
+    body: JSON.stringify({ prompt }),
     signal: AbortSignal.timeout(30_000),
   });
 
@@ -105,5 +87,5 @@ export async function getPackagingAdvice(question: string): Promise<string> {
   }
 
   const data = await res.json();
-  return data.advice || '';
+  return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
 }

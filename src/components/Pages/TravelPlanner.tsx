@@ -211,9 +211,7 @@ export default function TravelPlanner() {
       }
     } catch (err: any) {
       if (err.name === 'AbortError') return;
-      if (err.message?.includes('API_KEY') || err.message?.includes('401')) {
-        setError('GEMINI_API_KEY belum diisi di file .env — dapatkan gratis di: aistudio.google.com/app/apikey');
-      } else if (err.message?.includes('timeout') || err.message?.includes('AbortError')) {
+      if (err.message?.includes('timeout') || err.message?.includes('AbortError')) {
         setError('Permintaan timeout. Koneksi lambat atau server sedang sibuk, coba lagi.');
       } else {
         setError(`Terjadi kesalahan: ${err.message}. Silakan coba lagi.`);
@@ -356,20 +354,11 @@ export default function TravelPlanner() {
                     <X size={36} className="text-red-400" />
                   </div>
                   <h3 className="text-xl font-black text-red-500 mb-3">Ups, Ada Masalah</h3>
-                  {error.includes('aistudio.google.com') ? (
+                  {error.includes('Puter SDK') ? (
                     <div className="max-w-sm text-center">
                       <p className="text-stone-500 dark:text-stone-400 mb-3">
-                        <code className="bg-stone-100 dark:bg-stone-800 px-2 py-1 rounded text-sm font-mono">GEMINI_API_KEY</code> belum diisi di file <code className="bg-stone-100 dark:bg-stone-800 px-2 py-1 rounded text-sm font-mono">.env</code>
+                        Gagal memuat sistem AI dari Puter. Pastikan koneksi internet stabil.
                       </p>
-                      <a
-                        href="https://aistudio.google.com/app/apikey"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white rounded-2xl font-bold text-sm hover:bg-emerald-700 transition-colors"
-                      >
-                        Dapatkan API Key Gratis →
-                      </a>
-                      <p className="text-xs text-stone-400 mt-3">Gratis dari Google AI Studio, tidak perlu kartu kredit</p>
                     </div>
                   ) : (
                     <p className="text-stone-500 dark:text-stone-400 max-w-sm text-center">{error}</p>

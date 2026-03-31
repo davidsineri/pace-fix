@@ -8,7 +8,7 @@ import apiApp from "./api/index.js";
 async function startServer() {
   console.log("Env loaded:", {
     supabaseUrl: !!process.env.VITE_SUPABASE_URL,
-    geminiKey: !!process.env.GEMINI_API_KEY,
+    grokKey: !!process.env.GROK_API_KEY,
   });
   const app = express();
   const PORT = 3000;

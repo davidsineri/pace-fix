@@ -282,7 +282,7 @@ function Home() {
             onClick={() => document.getElementById('catalog')?.scrollIntoView({ behavior: 'smooth' })}
             className="relative rounded-[32px] overflow-hidden group cursor-pointer"
           >
-            <img src="https://images.unsplash.com/photo-1528360983277-13d401cdc186?q=80&w=800&auto=format&fit=crop" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" referrerPolicy="no-referrer" />
+            <img src="https://cdn2.gnfi.net/gnfi/uploads/articles/batik-papua-motif-cenderraswasi-bed863376f5d9a5a020e311bf8b34441.jpg" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" referrerPolicy="no-referrer" />
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent p-6 flex flex-col justify-end">
               <h4 className="text-xl font-black text-white italic">BATIK</h4>
             </div>

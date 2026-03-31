@@ -75,7 +75,7 @@ app.get('/api/products', async (req, res) => {
   } catch (error) {
     res.json([
       { id: 'p1', name: 'Kopi Papua', price: 85000, image_url: 'https://images.unsplash.com/photo-1559525839-b184a4d698c7?w=400' },
-      { id: 'p2', name: 'Batik Cendrawasih', price: 450000, image_url: 'https://images.unsplash.com/photo-1528360983277-13d401cdc186?w=400' },
+      { id: 'p2', name: 'Batik Cendrawasih', price: 450000, image_url: 'https://cdn2.gnfi.net/gnfi/uploads/articles/batik-papua-motif-cenderraswasi-bed863376f5d9a5a020e311bf8b34441.jpg' },
     ]);
   }
 });

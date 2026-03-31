@@ -354,10 +354,10 @@ export default function TravelPlanner() {
                     <X size={36} className="text-red-400" />
                   </div>
                   <h3 className="text-xl font-black text-red-500 mb-3">Ups, Ada Masalah</h3>
-                  {error.includes('Puter SDK') ? (
+                  {error.includes('Groq API key') ? (
                     <div className="max-w-sm text-center">
                       <p className="text-stone-500 dark:text-stone-400 mb-3">
-                        Gagal memuat sistem AI dari Puter. Pastikan koneksi internet stabil.
+                        <code className="bg-stone-100 dark:bg-stone-800 px-2 py-1 rounded text-sm font-mono">GROQ_API_KEY</code> belum diisi di dashboard Vercel atau file <code className="bg-stone-100 dark:bg-stone-800 px-2 py-1 rounded text-sm font-mono">.env</code>.
                       </p>
                     </div>
                   ) : (

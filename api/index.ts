@@ -28,13 +28,15 @@ async function getAIResponse(prompt: string, systemPrompt?: string) {
   const response = await axios.post(
     'https://openrouter.ai/api/v1/chat/completions',
     {
-      model: 'google/gemini-2.0-flash-001',
+      model: 'openai/gpt-4o-mini',
       messages
     },
     {
       headers: {
         'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://pace-ecommerce-fixed.vercel.app',
+        'X-Title': 'PACE Ecommerce'
       }
     }
   );

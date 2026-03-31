@@ -18,6 +18,29 @@ const snap = new midtransClient.Snap({
   clientKey: process.env.MIDTRANS_CLIENT_KEY || ''
 });
 
+const OPENROUTER_API_KEY = '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';
+
+async function getAIResponse(prompt: string, systemPrompt?: string) {
+  const messages: any[] = [];
+  if (systemPrompt) messages.push({ role: 'system', content: systemPrompt });
+  messages.push({ role: 'user', content: prompt });
+
+  const response = await axios.post(
+    'https://openrouter.ai/api/v1/chat/completions',
+    {
+      model: 'google/gemini-2.0-flash-001',
+      messages
+    },
+    {
+      headers: {
+        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+        'Content-Type': 'application/json'
+      }
+    }
+  );
+  return response.data.choices?.[0]?.message?.content || '';
+}
+
 function handleError(res: any, error: any, message: string) {
   console.error(message, error);
   return res.status(500).json({ error: message, details: error?.message || error });
@@ -77,106 +100,66 @@ app.post('/api/create-payment', async (req, res) => {
 app.post('/api/chat', async (req, res) => {
   try {
     const { message } = req.body;
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) throw new Error("No API key");
-    
-    const response = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-      { contents: [{ parts: [{ text: message }] }] }
-    );
-    res.json({ reply: response.data.candidates?.[0]?.content?.parts?.[0]?.text || 'OK' });
+    const reply = await getAIResponse(message, 'Kamu adalah asisten tourism Papua yang helpful.');
+    res.json({ reply });
   } catch (error) {
     handleError(res, error, "Chat error");
   }
 });
 
-// AI Routes - itinerary (plural)
 app.post('/api/ai/itinerary', async (req, res) => {
   try {
     const { days, interests, budget, origin } = req.body;
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) throw new Error("No API key");
-    
-    const prompt = `Buat itinerary ${days} hari di Papua, minat ${interests}, budget ${budget}`;
-    const response = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-      { contents: [{ parts: [{ text: prompt }] }] }
-    );
-    res.json({ itinerary: response.data.candidates?.[0]?.content?.parts?.[0]?.text || 'Itinerary' });
+    const prompt = `Buat itinerary perjalanan ${days} hari di Papua Indonesia dengan minat ${interests} dan budget ${budget}${origin ? ` dari ${origin}` : ''}. Berikan detail setiap hari termasuk tempat wisata, aktivitas, makanan lokal, dan tips perjalanan dalam bahasa Indonesia yang menarik.`;
+    const itinerary = await getAIResponse(prompt);
+    res.json({ itinerary });
   } catch (error) {
     handleError(res, error, "Itinerary error");
   }
 });
 
-// AI Routes - chat
 app.post('/api/ai/chat', async (req, res) => {
   try {
-    const { message } = req.body;
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) throw new Error("No API key");
-    
-    const response = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-      { contents: [{ parts: [{ text: message }] }] }
-    );
-    res.json({ reply: response.data.candidates?.[0]?.content?.parts?.[0]?.text || 'OK' });
+    const { message, history, productsContext } = req.body;
+    let prompt = message;
+    if (productsContext?.length > 0) {
+      prompt += `\n\nProduk yang tersedia: ${JSON.stringify(productsContext.map((p: any) => ({ id: p.id, name: p.name, price: p.price })))}`;
+    }
+    const reply = await getAIResponse(prompt, 'Kamu adalah asisten tourism dan ecommerce Papua yang helpful. Jika ada produkContext, rekomendasikan produk yang cocok.');
+    res.json({ reply });
   } catch (error) {
     handleError(res, error, "Chat error");
   }
 });
 
-// AI Routes - smart-search
 app.post('/api/ai/smart-search', async (req, res) => {
   try {
     const { query, products } = req.body;
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) throw new Error("No API key");
-    
-    const prompt = `Dari produk berikut: ${JSON.stringify(products)}, cari yang cocok dengan "${query}". Berikan ID produk yang cocok dalam format array JSON.`;
-    const response = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-      { contents: [{ parts: [{ text: prompt }] }] }
-    );
-    
-    // Parse response to extract IDs
-    const text = response.data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    const ids = text.match(/["']([^"']+)["']/g)?.map(s => s.replace(/["']/g, '')) || [];
+    const prompt = `Dari produk berikut: ${JSON.stringify(products)}, cari yang cocok dengan "${query}". Berikan ID produk yang cocok dalam format array JSON sederhana, contoh: ["id1","id2"]`;
+    const text = await getAIResponse(prompt);
+    const ids = text.match(/[""]([^""]+)[""]/g)?.map((s: string) => s.replace(/[""]/g, '')) || [];
     res.json({ ids });
   } catch (error) {
     handleError(res, error, "Search error");
   }
 });
 
-// AI Routes - describe-product
 app.post('/api/ai/describe-product', async (req, res) => {
   try {
     const { imageUrl } = req.body;
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) throw new Error("No API key");
-    
     const prompt = `Deskripsikan produk dari gambar ini dalam bahasa Indonesia yang menarik untuk ecommerce.`;
-    const response = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-      { contents: [{ parts: [{ text: prompt }] }] }
-    );
-    res.json({ description: response.data.candidates?.[0]?.content?.parts?.[0]?.text || '' });
+    const description = await getAIResponse(prompt);
+    res.json({ description });
   } catch (error) {
     handleError(res, error, "Describe error");
   }
 });
 
-// AI Routes - packaging-advice
 app.post('/api/ai/packaging-advice', async (req, res) => {
   try {
     const { question } = req.body;
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) throw new Error("No API key");
-    
-    const response = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-      { contents: [{ parts: [{ text: question }] }] }
-    );
-    res.json({ advice: response.data.candidates?.[0]?.content?.parts?.[0]?.text || '' });
+    const advice = await getAIResponse(question, 'Kamu adalah ahli packaging produk Papua. Berikan advice dalam bahasa Indonesia.');
+    res.json({ advice });
   } catch (error) {
     handleError(res, error, "Advice error");
   }

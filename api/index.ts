@@ -32,36 +32,30 @@ app.post('/api/ai-planner', async (req, res) => {
       return res.status(400).json({ error: "Prompt is required" });
     }
 
-    // Using OpenRouter API
-    const apiKey = process.env.OPENROUTER_API_KEY || 'sk-mr-a258eef19b383b3e4e68176a50c4fc12395d9cd4994969055ee03a15e8ccfb66';
+    const apiKey = process.env.GEMINI_API_KEY;
     
     if (!apiKey) {
-      return res.status(500).json({ error: "API key not configured" });
+      return res.status(500).json({ error: "API_KEY_MISSING", details: "Gemini API Key missing" });
     }
 
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${apiKey}`,
         "Content-Type": "application/json",
-        "HTTP-Referer": "https://pace-ecommerce-fixed.vercel.app",
-        "X-Title": "PACE Ecommerce"
       },
       body: JSON.stringify({
-        model: "openai/gpt-4o-mini",
-        messages: [{ role: "user", content: prompt }]
+        contents: [{ parts: [{ text: prompt }] }]
       }),
     });
 
     const data = await response.json();
 
     if (!response.ok) {
-      console.error("OpenRouter API error:", data);
-      return res.status(response.status).json({ error: data.error?.message || "AI error" });
+      console.error("Gemini API error:", data);
+      return res.status(response.status).json({ error: data.error?.message || "AI error", details: data });
     }
 
-    const text = data.choices?.[0]?.message?.content || '';
-    return res.status(200).json({ candidates: [{ content: { parts: [{ text }] } }] });
+    return res.status(200).json(data);
   } catch (err: any) {
     console.error("AI Planner error:", err);
     return res.status(500).json({ error: "Failed to generate AI response" });

@@ -771,9 +771,6 @@ function Checkout() {
                   <div className="space-y-3">
                     {[
                       { id: 'qris', name: 'QRIS / GoPay', desc: 'Scan QR — semua e-wallet', icon: '📱' },
-                      { id: 'transfer_bca', name: 'Transfer Bank BCA', desc: 'Manual transfer', icon: '🏦' },
-                      { id: 'transfer_mandiri', name: 'Transfer Bank Mandiri', desc: 'Manual transfer', icon: '🏦' },
-                      { id: 'transfer_bri', name: 'Transfer Bank BRI', desc: 'Manual transfer', icon: '🏦' },
                     ].map((method) => (
                       <button
                         key={method.id}
@@ -814,7 +811,6 @@ function Checkout() {
               {/* ===== STEP 2: Instruksi & Upload Bukti ===== */}
               {paymentStep === 2 && (
                 <>
-                  {selectedMethod === 'qris' ? (
                     <div className="text-center space-y-4">
                       <p className="font-bold text-black dark:text-white">Scan QR Code GoPay PACE</p>
                       <div className="bg-white border-2 border-stone-200 rounded-3xl p-6 mx-auto w-64 h-64 flex items-center justify-center">
@@ -841,32 +837,6 @@ function Checkout() {
                         <p className="text-xs text-yellow-800 dark:text-yellow-300 font-medium">QR Code ini adalah placeholder. Akan diganti dengan QR GoPay PACE asli.</p>
                       </div>
                     </div>
-                  ) : (
-                    <div className="space-y-4">
-                      <p className="font-bold text-black dark:text-white">Transfer ke Rekening PACE</p>
-                      <div className="p-5 bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-2xl space-y-3">
-                        <div className="flex justify-between items-center">
-                          <div>
-                            <p className="font-black text-black dark:text-white text-lg">
-                              {selectedMethod === 'transfer_bca' ? 'BCA' : selectedMethod === 'transfer_mandiri' ? 'Mandiri' : 'BRI'}
-                            </p>
-                            <p className="text-2xl font-mono font-black tracking-widest text-stone-700 dark:text-stone-300">1234 5678 90</p>
-                            <p className="text-sm text-stone-500">a.n. PT Papua Creative Economy</p>
-                          </div>
-                          <button
-                            onClick={() => { navigator.clipboard.writeText('1234567890'); alert('Nomor rekening disalin!'); }}
-                            className="px-4 py-2 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-xl font-bold text-sm hover:bg-emerald-200 transition-colors"
-                          >
-                            Salin
-                          </button>
-                        </div>
-                        <div className="pt-3 border-t border-stone-200 dark:border-stone-600">
-                          <p className="text-sm text-stone-500">Jumlah transfer:</p>
-                          <p className="text-xl font-black text-black dark:text-white">Rp {finalTotal.toLocaleString('id-ID')}</p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
 
                   {/* Upload Bukti */}
                   <div className="space-y-3 pt-4 border-t border-stone-100 dark:border-stone-700">

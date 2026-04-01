@@ -142,18 +142,185 @@ app.post('/api/posts', async (req, res) => {
 app.get('/api/orders', async (req, res) => {
   try {
     const { userId } = req.query;
-    const { data } = await supabase.from('orders').select('*, order_items(*)').eq('user_id', userId as string);
-    res.json(data || []);
+    const { data } = await supabase
+      .from('orders')
+      .select('*')
+      .eq('user_id', userId as string)
+      .order('created_at', { ascending: false });
+    
+    // For each order, try to get items
+    const ordersWithItems = await Promise.all((data || []).map(async (order: any) => {
+      try {
+        const { data: items } = await supabase
+          .from('order_items')
+          .select('*')
+          .eq('order_id', order.id);
+        return { ...order, items: items || order.items || [] };
+      } catch {
+        return { ...order, items: order.items || [] };
+      }
+    }));
+    
+    res.json(ordersWithItems);
   } catch (error) { res.json([]); }
 });
 
 app.post('/api/orders', async (req, res) => {
   try {
-    const { userId, items, total, status } = req.body;
-    await supabase.from('orders').insert({ user_id: userId, total_amount: total, status: status || 'pending' });
-    res.json({ success: true });
+    const { userId, items, total, status, shippingMethod, destinationCity, shippingCost, tipAmount } = req.body;
+    const orderId = `PACE-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
+    
+    // Insert order
+    const { data: orderData, error: orderError } = await supabase
+      .from('orders')
+      .insert({
+        id: orderId,
+        user_id: userId,
+        total: total,
+        status: status || 'MENUNGGU_PEMBAYARAN',
+        items: items,
+        shipping_method: shippingMethod || null,
+        destination_city: destinationCity || null,
+        shipping_cost: shippingCost || 0,
+        tip_amount: tipAmount || 0,
+        created_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+    
+    if (orderError) {
+      // Fallback: try simpler insert
+      await supabase.from('orders').insert({
+        user_id: userId,
+        total: total,
+        status: status || 'MENUNGGU_PEMBAYARAN',
+        items: items,
+        created_at: new Date().toISOString()
+      });
+      return res.json({ success: true, order_id: orderId });
+    }
+    
+    res.json({ success: true, order_id: orderData?.id || orderId });
   } catch (error) {
     handleError(res, error, "Order error");
+  }
+});
+
+// ========== PAYMENT PROOF ==========
+app.patch('/api/orders/:id/proof', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { proof_image } = req.body; // base64 string
+    
+    if (!proof_image) {
+      return res.status(400).json({ error: 'Bukti bayar diperlukan' });
+    }
+
+    const { error } = await supabase
+      .from('orders')
+      .update({ 
+        proof_url: proof_image,
+        status: 'MENUNGGU_KONFIRMASI',
+        proof_uploaded_at: new Date().toISOString()
+      })
+      .eq('id', id);
+    
+    if (error) throw error;
+    res.json({ success: true });
+  } catch (error) {
+    handleError(res, error, "Upload proof error");
+  }
+});
+
+// ========== ORDER STATUS UPDATE ==========
+app.patch('/api/orders/:id/status', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, reject_reason } = req.body;
+    
+    const updateData: any = { 
+      status,
+      updated_at: new Date().toISOString()
+    };
+    
+    if (reject_reason) {
+      updateData.reject_reason = reject_reason;
+    }
+    
+    if (status === 'DIBAYAR') {
+      updateData.verified_at = new Date().toISOString();
+    }
+    
+    const { error } = await supabase
+      .from('orders')
+      .update(updateData)
+      .eq('id', id);
+    
+    if (error) throw error;
+    res.json({ success: true });
+  } catch (error) {
+    handleError(res, error, "Status update error");
+  }
+});
+
+// ========== ADMIN: GET ALL ORDERS (with filter) ==========
+app.get('/api/admin/orders', async (req, res) => {
+  try {
+    const { status } = req.query;
+    let query = supabase
+      .from('orders')
+      .select('*')
+      .order('created_at', { ascending: false });
+    
+    if (status) {
+      query = query.eq('status', status as string);
+    }
+    
+    const { data, error } = await query;
+    if (error) throw error;
+    res.json(data || []);
+  } catch (error) { res.json([]); }
+});
+
+// ========== ADMIN: MARK PAID TO SELLER ==========
+app.patch('/api/admin/orders/:id/mark-paid', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { transfer_note } = req.body || {};
+    
+    // Get order to calculate commission
+    const { data: order, error: fetchError } = await supabase
+      .from('orders')
+      .select('*')
+      .eq('id', id)
+      .single();
+    
+    if (fetchError || !order) {
+      return res.status(404).json({ error: 'Order tidak ditemukan' });
+    }
+    
+    const total = order.total || 0;
+    const shippingCost = order.shipping_cost || 0;
+    const subtotal = total - shippingCost; // Subtotal produk saja
+    const commission = Math.round(subtotal * 0.10); // 10% komisi dari SUBTOTAL (bukan total)
+    const sellerAmount = total - commission; // Seller terima total dikurangi komisi
+    
+    const { error } = await supabase
+      .from('orders')
+      .update({
+        status: 'SELESAI',
+        seller_paid_at: new Date().toISOString(),
+        seller_amount: sellerAmount,
+        pace_commission: commission,
+        transfer_note: transfer_note || null,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id);
+    
+    if (error) throw error;
+    res.json({ success: true, sellerAmount, commission, subtotal, shippingCost });
+  } catch (error) {
+    handleError(res, error, "Mark paid error");
   }
 });
 

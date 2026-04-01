@@ -49,15 +49,9 @@ function Navbar() {
     }
   }, [isDarkMode]);
 
-  const isVercel = window.location.hostname.includes('vercel.app');
 
   return (
     <header className="bg-white/80 dark:bg-stone-950/80 backdrop-blur-xl sticky top-0 z-50 border-b border-stone-100 dark:border-stone-800 transition-colors duration-300">
-      {isVercel && (
-        <div className="bg-amber-500 text-white text-center py-1 text-xs font-bold">
-          PERHATIAN: Anda sedang membuka versi Vercel. Fitur AI mungkin tidak berfungsi. Gunakan URL AI Studio untuk fitur lengkap.
-        </div>
-      )}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-20 gap-4">
           {/* Logo */}
@@ -369,8 +363,11 @@ function Checkout() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [paymentStatus, setPaymentStatus] = useState<'idle' | 'waiting_payment' | 'processing' | 'success'>('idle');
+  const [paymentStep, setPaymentStep] = useState(1);
   const [selectedMethod, setSelectedMethod] = useState<string | null>(null);
+  const [proofImage, setProofImage] = useState<string>('');
+  const [uploadingProof, setUploadingProof] = useState(false);
+  const [createdOrderId, setCreatedOrderId] = useState<string>('');
   const [shippingMethod, setShippingMethod] = useState<string>('jne');
   const [dynamicShippingCost, setDynamicShippingCost] = useState<number>(0);
   const [loadingShipping, setLoadingShipping] = useState(false);
@@ -487,69 +484,61 @@ function Checkout() {
     );
   }
 
-  const handleProcessPayment = async () => {
-    setPaymentStatus('processing');
+  const handleProofUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setProofImage(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleCreateOrderAndUploadProof = async () => {
+    if (!proofImage) {
+      alert('Silakan upload bukti pembayaran terlebih dahulu.');
+      return;
+    }
+    setUploadingProof(true);
     
     try {
-      // 1. Create order in database
+      // 1. Create order
       const res = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId: user?.id || 'guest',
           total: finalTotal,
-          items: items
+          items: items,
+          shippingMethod: shippingMethod,
+          destinationCity: destinationCity,
+          shippingCost: totalShipping,
+          tipAmount: tipAmount
         })
       });
       
       const orderData = await res.json();
       if (!res.ok) throw new Error('Gagal membuat pesanan');
+      const orderId = orderData.order_id;
+      setCreatedOrderId(orderId);
 
-      // 2. Get Snap Token
-      const tokenRes = await fetch('/api/payments/token', {
-        method: 'POST',
+      // 2. Upload proof
+      const proofRes = await fetch(`/api/orders/${orderId}/proof`, {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          orderId: orderData.order_id,
-          totalAmount: finalTotal,
-          customerDetails: {
-            name: user?.user_metadata?.full_name || 'Guest',
-            email: user?.email || 'guest@example.com',
-            phone: '08123456789'
-          }
-        })
+        body: JSON.stringify({ proof_image: proofImage })
       });
       
-      const { token } = await tokenRes.json();
-      
-      // 3. Trigger Snap
-      if (window.snap) {
-        window.snap.pay(token, {
-          onSuccess: (result: any) => {
-            setPaymentStatus('success');
-            setTimeout(() => {
-              clearCart();
-              setShowPaymentModal(false);
-              navigate('/profile');
-            }, 2000);
-          },
-          onPending: (result: any) => {
-            alert('Menunggu pembayaran');
-            setPaymentStatus('idle');
-          },
-          onError: (result: any) => {
-            alert('Pembayaran gagal');
-            setPaymentStatus('idle');
-          },
-          onClose: () => {
-            setPaymentStatus('idle');
-          }
-        });
-      }
+      if (!proofRes.ok) throw new Error('Gagal upload bukti');
+
+      // 3. Move to step 3 (waiting verification)
+      setPaymentStep(3);
+      clearCart();
     } catch (err) {
       console.error(err);
-      alert('Terjadi kesalahan saat memproses pembayaran.');
-      setPaymentStatus('idle');
+      alert('Terjadi kesalahan. Silakan coba lagi.');
+    } finally {
+      setUploadingProof(false);
     }
   };
 
@@ -748,147 +737,226 @@ function Checkout() {
         </div>
       </div>
 
-      {/* Mock Payment Gateway Modal */}
+      {/* PACE Payment Gateway Modal — 4 Step */}
       {showPaymentModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
           <motion.div 
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            className="bg-white w-full max-w-md rounded-[32px] overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
+            className="bg-white dark:bg-stone-900 w-full max-w-lg rounded-[32px] overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
           >
-            {paymentStatus === 'success' ? (
-              <div className="p-12 text-center space-y-6 overflow-y-auto">
-                <div className="w-24 h-24 bg-green-100 text-green-500 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            {/* Header */}
+            <div className="bg-stone-50 dark:bg-stone-800 p-6 border-b border-stone-100 dark:border-stone-700 flex justify-between items-center shrink-0">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  {[1,2,3].map(s => (
+                    <div key={s} className={`w-8 h-1.5 rounded-full transition-all ${paymentStep >= s ? 'bg-emerald-500' : 'bg-stone-200 dark:bg-stone-600'}`} />
+                  ))}
                 </div>
-                <h3 className="text-3xl font-black italic text-black">🎉 Pesanan Dibuat!</h3>
-                <p className="text-stone-500 font-medium">
-                  Terima kasih telah mendukung produk Papua.<br />
-                  Silakan tunggu konfirmasi pembayaran dari admin.
+                <p className="text-sm font-bold text-stone-400 uppercase tracking-widest">
+                  {paymentStep === 1 ? 'Pilih Metode' : paymentStep === 2 ? 'Upload Bukti' : paymentStep === 3 ? 'Menunggu Verifikasi' : 'Selesai'}
                 </p>
+                <p className="text-2xl font-black text-black dark:text-white">Rp {finalTotal.toLocaleString('id-ID')}</p>
               </div>
-            ) : paymentStatus === 'waiting_payment' || paymentStatus === 'processing' ? (
-              <div className="flex flex-col h-full overflow-hidden">
-                <div className="bg-stone-50 p-6 border-b border-stone-100 flex justify-between items-center shrink-0">
-                  <div>
-                    <p className="text-sm font-bold text-stone-400 uppercase tracking-widest mb-1">Selesaikan Pembayaran</p>
-                    <p className="text-2xl font-black text-black">Rp {finalTotal.toLocaleString('id-ID')}</p>
-                  </div>
-                  <button onClick={() => setShowPaymentModal(false)} className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm text-stone-400 hover:text-black transition-colors">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                  </button>
-                </div>
-                <div className="p-6 space-y-6 overflow-y-auto text-center flex-grow">
-                  <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-2xl text-left mb-4">
-                    <p className="text-sm text-yellow-800 font-medium">
-                      Karena PACE masih dalam tahap pengembangan (Beta), pembayaran saat ini dilakukan melalui <strong>Transfer Manual</strong>.
-                    </p>
-                  </div>
-                  
-                  <p className="font-bold text-stone-600">Silakan transfer tepat sebesar:</p>
-                  <div className="bg-stone-100 p-6 rounded-3xl">
-                    <p className="text-4xl font-black text-black">Rp {finalTotal.toLocaleString('id-ID')}</p>
-                  </div>
+              <button onClick={() => { setShowPaymentModal(false); setPaymentStep(1); setProofImage(''); setSelectedMethod(null); }} className="w-10 h-10 bg-white dark:bg-stone-700 rounded-full flex items-center justify-center shadow-sm text-stone-400 hover:text-black dark:hover:text-white transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              </button>
+            </div>
 
-                  <div className="text-left space-y-2 mt-6">
-                    <p className="text-sm text-stone-500">Ke rekening berikut:</p>
-                    <div className="p-4 border border-stone-200 rounded-xl flex justify-between items-center">
-                      <div>
-                        <p className="font-bold text-black">{selectedMethod === 'transfer_bca' ? 'BCA' : selectedMethod === 'transfer_mandiri' ? 'Mandiri' : 'BRI'}</p>
-                        <p className="text-xl font-mono font-black tracking-widest text-stone-700">1234 5678 90</p>
-                        <p className="text-sm text-stone-500">a.n. PT Papua Creative Economy</p>
-                      </div>
-                      <button className="text-emerald-600 font-bold text-sm hover:underline">Salin</button>
-                    </div>
-                  </div>
-
-                  <div className="text-left mt-6">
-                    <label className="block text-sm font-bold text-stone-700 mb-2">Upload Bukti Transfer</label>
-                    <div className="w-full h-32 border-2 border-dashed border-stone-300 rounded-xl flex flex-col items-center justify-center text-stone-400 bg-stone-50 cursor-pointer hover:border-emerald-500 hover:text-emerald-500 transition-colors">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mb-2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-                      <span className="font-medium text-sm">Klik untuk upload foto/screenshot</span>
-                    </div>
-                  </div>
-                  
-                  <button 
-                    onClick={handleProcessPayment}
-                    disabled={paymentStatus === 'processing'}
-                    className={`w-full py-4 rounded-full font-bold text-lg transition-all mt-4 ${
-                      paymentStatus === 'processing'
-                        ? 'bg-black text-white opacity-80 cursor-wait'
-                        : 'bg-emerald-600 text-white hover:bg-emerald-700'
-                    }`}
-                  >
-                    {paymentStatus === 'processing' ? 'Memproses...' : 'Konfirmasi Pembayaran'}
-                  </button>
-                  
-                  <button 
-                    onClick={handleProcessPayment}
-                    className="w-full py-3 text-stone-500 font-bold text-sm hover:text-black transition-colors flex items-center justify-center gap-2"
-                  >
-                    Atau Konfirmasi via WhatsApp
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-col h-full overflow-hidden">
-                <div className="bg-stone-50 p-6 border-b border-stone-100 flex justify-between items-center shrink-0">
-                  <div>
-                    <p className="text-sm font-bold text-stone-400 uppercase tracking-widest mb-1">Total Pembayaran</p>
-                    <p className="text-2xl font-black text-black">Rp {finalTotal.toLocaleString('id-ID')}</p>
-                  </div>
-                  <button onClick={() => setShowPaymentModal(false)} className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm text-stone-400 hover:text-black transition-colors">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                  </button>
-                </div>
-                
-                <div className="p-6 space-y-6 overflow-y-auto flex-grow">
-                  <p className="font-bold text-black">Pilih Metode Pembayaran</p>
-                  
+            <div className="p-6 space-y-5 overflow-y-auto flex-grow">
+              {/* ===== STEP 1: Pilih Metode ===== */}
+              {paymentStep === 1 && (
+                <>
+                  <p className="font-bold text-black dark:text-white">Pilih Metode Pembayaran</p>
                   <div className="space-y-3">
                     {[
-                      { id: 'transfer_bca', name: 'Transfer Bank BCA', icon: '🏦' },
-                      { id: 'transfer_mandiri', name: 'Transfer Bank Mandiri', icon: '🏦' },
-                      { id: 'transfer_bri', name: 'Transfer Bank BRI', icon: '🏦' },
+                      { id: 'qris', name: 'QRIS / GoPay', desc: 'Scan QR — semua e-wallet', icon: '📱' },
+                      { id: 'transfer_bca', name: 'Transfer Bank BCA', desc: 'Manual transfer', icon: '🏦' },
+                      { id: 'transfer_mandiri', name: 'Transfer Bank Mandiri', desc: 'Manual transfer', icon: '🏦' },
+                      { id: 'transfer_bri', name: 'Transfer Bank BRI', desc: 'Manual transfer', icon: '🏦' },
                     ].map((method) => (
                       <button
                         key={method.id}
                         onClick={() => setSelectedMethod(method.id)}
                         className={`w-full flex items-center gap-4 p-4 rounded-2xl border-2 transition-all text-left ${
                           selectedMethod === method.id 
-                            ? 'border-black bg-stone-50' 
-                            : 'border-stone-100 hover:border-stone-200'
+                            ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' 
+                            : 'border-stone-100 dark:border-stone-700 hover:border-stone-300'
                         }`}
                       >
                         <span className="text-2xl">{method.icon}</span>
-                        <span className="font-medium text-black">{method.name}</span>
+                        <div className="flex-grow">
+                          <span className="font-bold text-black dark:text-white block">{method.name}</span>
+                          <span className="text-xs text-stone-400">{method.desc}</span>
+                        </div>
                         {selectedMethod === method.id && (
-                          <div className="ml-auto w-6 h-6 bg-black rounded-full flex items-center justify-center shrink-0">
+                          <div className="w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center shrink-0">
                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
                           </div>
                         )}
                       </button>
                     ))}
                   </div>
-
                   <button 
-                    onClick={() => setPaymentStatus('waiting_payment')}
+                    onClick={() => setPaymentStep(2)}
                     disabled={!selectedMethod}
-                    className={`w-full py-4 rounded-full font-bold text-lg transition-all shrink-0 mt-4 ${
+                    className={`w-full py-4 rounded-full font-bold text-lg transition-all ${
                       !selectedMethod 
-                        ? 'bg-stone-100 text-stone-400 cursor-not-allowed' 
-                        : 'bg-black text-white hover:bg-stone-800'
+                        ? 'bg-stone-100 dark:bg-stone-800 text-stone-400 cursor-not-allowed' 
+                        : 'bg-black dark:bg-white text-white dark:text-black hover:bg-stone-800 dark:hover:bg-stone-200'
                     }`}
                   >
                     Lanjutkan
                   </button>
+                </>
+              )}
+
+              {/* ===== STEP 2: Instruksi & Upload Bukti ===== */}
+              {paymentStep === 2 && (
+                <>
+                  {selectedMethod === 'qris' ? (
+                    <div className="text-center space-y-4">
+                      <p className="font-bold text-black dark:text-white">Scan QR Code GoPay PACE</p>
+                      <div className="bg-white border-2 border-stone-200 rounded-3xl p-6 mx-auto w-64 h-64 flex items-center justify-center">
+                        <div className="text-center">
+                          <div className="w-40 h-40 bg-stone-100 rounded-2xl flex items-center justify-center mb-3 mx-auto relative overflow-hidden">
+                            {/* QR Placeholder */}
+                            <div className="grid grid-cols-8 gap-[2px] w-32 h-32">
+                              {Array.from({length: 64}).map((_, i) => (
+                                <div key={i} className={`w-full aspect-square rounded-[1px] ${
+                                  Math.random() > 0.5 ? 'bg-black' : 'bg-white'
+                                }`} />
+                              ))}
+                            </div>
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <div className="bg-white p-1 rounded-lg shadow-sm">
+                                <span className="text-lg font-black italic">P</span>
+                              </div>
+                            </div>
+                          </div>
+                          <p className="text-xs text-stone-400 font-medium">QRIS — GoPay PACE</p>
+                        </div>
+                      </div>
+                      <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 p-3 rounded-2xl">
+                        <p className="text-xs text-yellow-800 dark:text-yellow-300 font-medium">QR Code ini adalah placeholder. Akan diganti dengan QR GoPay PACE asli.</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <p className="font-bold text-black dark:text-white">Transfer ke Rekening PACE</p>
+                      <div className="p-5 bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-2xl space-y-3">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <p className="font-black text-black dark:text-white text-lg">
+                              {selectedMethod === 'transfer_bca' ? 'BCA' : selectedMethod === 'transfer_mandiri' ? 'Mandiri' : 'BRI'}
+                            </p>
+                            <p className="text-2xl font-mono font-black tracking-widest text-stone-700 dark:text-stone-300">1234 5678 90</p>
+                            <p className="text-sm text-stone-500">a.n. PT Papua Creative Economy</p>
+                          </div>
+                          <button
+                            onClick={() => { navigator.clipboard.writeText('1234567890'); alert('Nomor rekening disalin!'); }}
+                            className="px-4 py-2 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-xl font-bold text-sm hover:bg-emerald-200 transition-colors"
+                          >
+                            Salin
+                          </button>
+                        </div>
+                        <div className="pt-3 border-t border-stone-200 dark:border-stone-600">
+                          <p className="text-sm text-stone-500">Jumlah transfer:</p>
+                          <p className="text-xl font-black text-black dark:text-white">Rp {finalTotal.toLocaleString('id-ID')}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Upload Bukti */}
+                  <div className="space-y-3 pt-4 border-t border-stone-100 dark:border-stone-700">
+                    <p className="font-bold text-black dark:text-white">Upload Bukti Pembayaran</p>
+                    <p className="text-xs text-stone-400">Foto screenshot transfer / bukti pembayaran QRIS</p>
+                    
+                    {proofImage ? (
+                      <div className="relative">
+                        <img src={proofImage} alt="Bukti" className="w-full max-h-48 object-contain rounded-2xl border border-stone-200" />
+                        <button 
+                          onClick={() => setProofImage('')}
+                          className="absolute top-2 right-2 w-8 h-8 bg-red-500 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-red-600 transition-colors"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                        </button>
+                      </div>
+                    ) : (
+                      <label className="block cursor-pointer">
+                        <div className="w-full h-36 border-2 border-dashed border-stone-300 dark:border-stone-600 rounded-2xl flex flex-col items-center justify-center text-stone-400 bg-stone-50 dark:bg-stone-800 hover:border-emerald-500 hover:text-emerald-500 transition-colors">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mb-2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                          <span className="font-bold text-sm">Klik untuk upload foto bukti</span>
+                          <span className="text-xs mt-1">JPG, PNG, max 5MB</span>
+                        </div>
+                        <input type="file" accept="image/*" onChange={handleProofUpload} className="hidden" />
+                      </label>
+                    )}
+                  </div>
+
+                  <div className="flex gap-3 pt-2">
+                    <button 
+                      onClick={() => { setPaymentStep(1); setProofImage(''); }}
+                      className="px-6 py-4 rounded-full font-bold text-stone-500 dark:text-stone-400 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 transition-colors"
+                    >
+                      Kembali
+                    </button>
+                    <button 
+                      onClick={handleCreateOrderAndUploadProof}
+                      disabled={!proofImage || uploadingProof}
+                      className={`flex-1 py-4 rounded-full font-bold text-lg transition-all ${
+                        !proofImage || uploadingProof
+                          ? 'bg-stone-100 dark:bg-stone-800 text-stone-400 cursor-not-allowed' 
+                          : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                      }`}
+                    >
+                      {uploadingProof ? 'Mengirim...' : 'Konfirmasi Sudah Bayar'}
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {/* ===== STEP 3: Menunggu Verifikasi ===== */}
+              {paymentStep === 3 && (
+                <div className="text-center space-y-6 py-8">
+                  <div className="w-24 h-24 bg-yellow-100 dark:bg-yellow-900/30 rounded-full flex items-center justify-center mx-auto">
+                    <span className="text-5xl">⏳</span>
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-black italic text-black dark:text-white mb-2">Menunggu Konfirmasi</h3>
+                    <p className="text-stone-500 dark:text-stone-400 font-medium">
+                      Bukti pembayaran Anda sedang diperiksa oleh admin PACE.
+                    </p>
+                    <p className="text-sm text-stone-400 mt-2">Estimasi verifikasi: 1×24 jam</p>
+                  </div>
                   
-                  <p className="text-center text-xs text-stone-400 font-medium mt-4">
-                    Secured by PACE Mock Payment Gateway
-                  </p>
+                  {createdOrderId && (
+                    <div className="bg-stone-50 dark:bg-stone-800 p-4 rounded-2xl">
+                      <p className="text-xs text-stone-400 font-bold uppercase tracking-widest mb-1">ID Pesanan</p>
+                      <p className="font-mono font-bold text-black dark:text-white">{createdOrderId}</p>
+                    </div>
+                  )}
+
+                  <div className="space-y-3 pt-4">
+                    <a 
+                      href="https://wa.me/6281234567890?text=Halo%20Admin%20PACE,%20saya%20sudah%20upload%20bukti%20bayar%20untuk%20pesanan%20" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="w-full py-4 rounded-full font-bold text-lg bg-green-500 text-white hover:bg-green-600 transition-all flex items-center justify-center gap-2"
+                    >
+                      💬 Konfirmasi via WhatsApp
+                    </a>
+                    <button 
+                      onClick={() => { setShowPaymentModal(false); setPaymentStep(1); setProofImage(''); setSelectedMethod(null); navigate('/profile'); }}
+                      className="w-full py-3 text-stone-500 dark:text-stone-400 font-bold text-sm hover:text-black dark:hover:text-white transition-colors"
+                    >
+                      Lihat Status di Profil Saya
+                    </button>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </motion.div>
         </div>
       )}
@@ -983,55 +1051,122 @@ function Profile() {
               </div>
               
               {orders.length === 0 ? (
-                <div className="bg-stone-50 rounded-[40px] p-12 text-center border border-stone-100">
+                <div className="bg-stone-50 dark:bg-stone-800 rounded-[40px] p-12 text-center border border-stone-100 dark:border-stone-700">
                   <p className="text-stone-400 font-medium italic">Belum ada riwayat pesanan.</p>
                 </div>
               ) : (
                 <div className="space-y-6">
-                  {orders.map((order, i) => (
-                    <div key={i} className="bg-white border border-stone-200 rounded-[32px] p-8">
-                      <div className="flex justify-between items-center mb-6 pb-6 border-b border-stone-100">
+                  {orders.map((order, i) => {
+                    const statusSteps = [
+                      { key: 'MENUNGGU_PEMBAYARAN', label: 'Menunggu Bayar', color: 'stone', icon: '🛒' },
+                      { key: 'MENUNGGU_KONFIRMASI', label: 'Bukti Diunggah', color: 'yellow', icon: '📤' },
+                      { key: 'DIBAYAR', label: 'Diverifikasi', color: 'blue', icon: '✅' },
+                      { key: 'DIPROSES', label: 'Diproses Seller', color: 'purple', icon: '📦' },
+                      { key: 'DIKIRIM', label: 'Dikirim', color: 'indigo', icon: '🚚' },
+                      { key: 'SELESAI', label: 'Selesai', color: 'emerald', icon: '🎉' },
+                    ];
+                    const isRejected = order.status === 'DITOLAK';
+                    const currentIdx = statusSteps.findIndex(s => s.key === order.status);
+                    
+                    const statusBadgeColors: Record<string, string> = {
+                      'MENUNGGU_PEMBAYARAN': 'bg-stone-100 text-stone-600 dark:bg-stone-700 dark:text-stone-300',
+                      'MENUNGGU_KONFIRMASI': 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
+                      'DIBAYAR': 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+                      'DIPROSES': 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+                      'DIKIRIM': 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400',
+                      'SELESAI': 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+                      'DITOLAK': 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+                    };
+                    const statusLabel: Record<string, string> = {
+                      'MENUNGGU_PEMBAYARAN': 'Menunggu Bayar',
+                      'MENUNGGU_KONFIRMASI': 'Menunggu Verifikasi',
+                      'DIBAYAR': 'Dibayar',
+                      'DIPROSES': 'Diproses',
+                      'DIKIRIM': 'Dikirim',
+                      'SELESAI': 'Selesai',
+                      'DITOLAK': 'Ditolak',
+                    };
+
+                    return (
+                    <div key={i} className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-[32px] p-8">
+                      {/* Header */}
+                      <div className="flex justify-between items-center mb-6 pb-6 border-b border-stone-100 dark:border-stone-800">
                         <div>
-                          <p className="text-xs font-bold text-stone-400 uppercase tracking-widest mb-1">ID Pesanan: #{order.id}</p>
-                          <p className="text-sm font-medium text-stone-600">{new Date(order.created_at || order.createdAt).toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                          <p className="text-xs font-bold text-stone-400 uppercase tracking-widest mb-1">Pesanan #{order.id}</p>
+                          <p className="text-sm font-medium text-stone-600 dark:text-stone-400">
+                            {new Date(order.created_at || order.createdAt).toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' })}
+                          </p>
                         </div>
-                        <span className={`px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest ${
-                          order.status === 'PAID' ? 'bg-blue-100 text-blue-700' :
-                          order.status === 'SHIPPED' ? 'bg-yellow-100 text-yellow-700' :
-                          order.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-700' :
-                          'bg-stone-100 text-stone-700'
-                        }`}>
-                          {order.status === 'PAID' ? 'Dibayar' : 
-                           order.status === 'SHIPPED' ? 'Dikirim' : 
-                           order.status === 'COMPLETED' ? 'Selesai' : 
-                           order.status || 'Diproses'}
+                        <span className={`px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest ${statusBadgeColors[order.status] || 'bg-stone-100 text-stone-600'}`}>
+                          {statusLabel[order.status] || order.status || 'Diproses'}
                         </span>
                       </div>
+
+                      {/* Timeline */}
+                      {!isRejected && (
+                        <div className="mb-6">
+                          <div className="flex items-center justify-between relative">
+                            {/* Progress bar background */}
+                            <div className="absolute top-4 left-4 right-4 h-1 bg-stone-100 dark:bg-stone-700 rounded-full" />
+                            {/* Progress bar fill */}
+                            <div 
+                              className="absolute top-4 left-4 h-1 bg-emerald-500 rounded-full transition-all duration-500"
+                              style={{ width: `${Math.max(0, currentIdx) / (statusSteps.length - 1) * 100}%`, maxWidth: 'calc(100% - 32px)' }}
+                            />
+                            {statusSteps.map((step, si) => (
+                              <div key={step.key} className="relative z-10 flex flex-col items-center" style={{ width: `${100 / statusSteps.length}%` }}>
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm border-2 transition-all ${
+                                  si <= currentIdx 
+                                    ? 'bg-emerald-500 border-emerald-500 text-white' 
+                                    : 'bg-white dark:bg-stone-800 border-stone-200 dark:border-stone-600 text-stone-400'
+                                }`}>
+                                  {si <= currentIdx ? '✓' : step.icon}
+                                </div>
+                                <p className={`text-[10px] font-bold mt-1 text-center leading-tight ${
+                                  si <= currentIdx ? 'text-emerald-600 dark:text-emerald-400' : 'text-stone-400'
+                                }`}>
+                                  {step.label}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Rejected notice */}
+                      {isRejected && (
+                        <div className="mb-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-4 rounded-2xl">
+                          <p className="font-bold text-red-600 dark:text-red-400 text-sm mb-1">❌ Pembayaran Ditolak</p>
+                          {order.reject_reason && (
+                            <p className="text-sm text-red-500 dark:text-red-400">Alasan: {order.reject_reason}</p>
+                          )}
+                          <p className="text-xs text-red-400 mt-2">Silakan upload ulang bukti bayar yang benar atau hubungi admin.</p>
+                        </div>
+                      )}
+
+                      {/* Items */}
                       <div className="space-y-4">
-                        {order.items.map((item: any, j: number) => (
+                        {(order.items || []).map((item: any, j: number) => (
                           <div key={j} className="flex items-center gap-4">
-                            <img src={item.image_url} alt={item.name} className="w-16 h-16 rounded-xl object-cover" referrerPolicy="no-referrer" />
-                            <div className="flex-grow">
-                              <h5 className="font-black text-black italic">{item.name}</h5>
-                              <p className="text-sm text-stone-500">{item.quantity} x Rp {item.price.toLocaleString('id-ID')}</p>
-                            </div>
-                            {item.category === 'Tiket Wisata' && (
-                              <button 
-                                onClick={() => alert('E-Ticket akan dikirim ke email Anda atau dapat diunduh di sini.')}
-                                className="px-4 py-2 bg-emerald-100 text-emerald-700 hover:bg-emerald-200 rounded-full text-xs font-bold uppercase tracking-widest transition-colors"
-                              >
-                                E-Ticket
-                              </button>
+                            {item.image_url && (
+                              <img src={item.image_url} alt={item.name} className="w-16 h-16 rounded-xl object-cover" referrerPolicy="no-referrer" />
                             )}
+                            <div className="flex-grow">
+                              <h5 className="font-black text-black dark:text-white italic">{item.name}</h5>
+                              <p className="text-sm text-stone-500">{item.quantity || 1} x Rp {(item.price || 0).toLocaleString('id-ID')}</p>
+                            </div>
                           </div>
                         ))}
                       </div>
-                      <div className="mt-6 pt-6 border-t border-stone-100 flex justify-between items-center">
-                        <span className="font-bold text-stone-500">Total Pembayaran</span>
-                        <span className="text-2xl font-black text-black italic">Rp {order.total.toLocaleString('id-ID')}</span>
+
+                      {/* Total */}
+                      <div className="mt-6 pt-6 border-t border-stone-100 dark:border-stone-800 flex justify-between items-center">
+                        <span className="font-bold text-stone-500 dark:text-stone-400">Total Pembayaran</span>
+                        <span className="text-2xl font-black text-black dark:text-white italic">Rp {(order.total || 0).toLocaleString('id-ID')}</span>
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </>

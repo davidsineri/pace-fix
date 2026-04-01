@@ -28,9 +28,23 @@ export default function SellerDashboard() {
   const [uploading, setUploading] = useState(false);
   const [aiGenerating, setAiGenerating] = useState(false);
 
+  // Bank account state
+  const [bankInfo, setBankInfo] = useState({
+    bankName: '',
+    accountNumber: '',
+    accountHolder: ''
+  });
+  const [bankSaved, setBankSaved] = useState(false);
+
   useEffect(() => {
     if (shop) {
       fetchData();
+      // Load saved bank info
+      const saved = localStorage.getItem(`pace_bank_${shop.id}`);
+      if (saved) {
+        setBankInfo(JSON.parse(saved));
+        setBankSaved(true);
+      }
     } else {
       setLoading(false);
     }
@@ -301,7 +315,7 @@ export default function SellerDashboard() {
 
         {/* Tabs */}
         <div className="flex gap-4 mb-8 overflow-x-auto pb-2 scrollbar-hide">
-          {['Produk', 'Pesanan', 'AI Assistant'].map((tab) => (
+          {['Produk', 'Pesanan', 'Rekening', 'AI Assistant'].map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -570,6 +584,105 @@ export default function SellerDashboard() {
               >
                 <Send size={20} />
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* Rekening Tab */}
+        {activeTab === 'Rekening' && (
+          <div className="space-y-6">
+            <h2 className="text-2xl font-black italic">Data Rekening / GoPay</h2>
+            <p className="text-stone-500">Informasi ini digunakan admin PACE untuk mentransfer pembayaran pesanan ke Anda (setelah dipotong komisi 10%).</p>
+            
+            <div className="bg-white rounded-[40px] p-8 shadow-sm border border-stone-100">
+              {bankSaved && (
+                <div className="mb-6 bg-emerald-50 border border-emerald-200 p-4 rounded-2xl flex items-center gap-3">
+                  <span className="text-2xl">✅</span>
+                  <p className="text-sm font-bold text-emerald-700">Data rekening tersimpan! Admin akan transfer ke rekening ini.</p>
+                </div>
+              )}
+              
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                if (shop) {
+                  localStorage.setItem(`pace_bank_${shop.id}`, JSON.stringify(bankInfo));
+                  setBankSaved(true);
+                  alert('Data rekening berhasil disimpan!');
+                }
+              }} className="space-y-6">
+                <div>
+                  <label className="block text-xs font-black uppercase tracking-widest text-stone-500 mb-2">Nama Bank / E-Wallet</label>
+                  <select
+                    value={bankInfo.bankName}
+                    onChange={(e) => setBankInfo({ ...bankInfo, bankName: e.target.value })}
+                    className="w-full p-4 rounded-2xl bg-stone-50 border-2 border-stone-100 focus:border-black outline-none transition-all"
+                    required
+                  >
+                    <option value="">Pilih bank / e-wallet</option>
+                    <option value="BCA">BCA</option>
+                    <option value="Mandiri">Mandiri</option>
+                    <option value="BRI">BRI</option>
+                    <option value="BNI">BNI</option>
+                    <option value="GoPay">GoPay</option>
+                    <option value="OVO">OVO</option>
+                    <option value="DANA">DANA</option>
+                    <option value="ShopeePay">ShopeePay</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-black uppercase tracking-widest text-stone-500 mb-2">Nomor Rekening / No HP</label>
+                  <input
+                    type="text"
+                    required
+                    value={bankInfo.accountNumber}
+                    onChange={(e) => setBankInfo({ ...bankInfo, accountNumber: e.target.value })}
+                    className="w-full p-4 rounded-2xl bg-stone-50 border-2 border-stone-100 focus:border-black outline-none transition-all"
+                    placeholder="Contoh: 1234567890 atau 08123456789"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-black uppercase tracking-widest text-stone-500 mb-2">Nama Pemilik Rekening</label>
+                  <input
+                    type="text"
+                    required
+                    value={bankInfo.accountHolder}
+                    onChange={(e) => setBankInfo({ ...bankInfo, accountHolder: e.target.value })}
+                    className="w-full p-4 rounded-2xl bg-stone-50 border-2 border-stone-100 focus:border-black outline-none transition-all"
+                    placeholder="Nama sesuai rekening bank"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="w-full bg-black text-white py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-stone-800 transition-colors"
+                >
+                  {bankSaved ? 'Perbarui Data Rekening' : 'Simpan Data Rekening'}
+                </button>
+              </form>
+              
+              {bankSaved && (
+                <div className="mt-8 pt-6 border-t border-stone-100">
+                  <h3 className="text-sm font-black uppercase tracking-widest text-stone-400 mb-4">Rekening Aktif</h3>
+                  <div className="bg-stone-50 p-5 rounded-2xl space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-sm text-stone-500">Bank</span>
+                      <span className="font-black">{bankInfo.bankName}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-stone-500">Nomor</span>
+                      <span className="font-mono font-bold tracking-widest">{bankInfo.accountNumber}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-stone-500">Pemilik</span>
+                      <span className="font-bold">{bankInfo.accountHolder}</span>
+                    </div>
+                  </div>
+                  <div className="mt-4 bg-blue-50 border border-blue-200 p-3 rounded-xl">
+                    <p className="text-xs text-blue-700 font-medium">
+                      💡 Komisi PACE 10% dihitung dari subtotal produk (tanpa ongkos kirim) dan dipotong otomatis saat pencairan.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}

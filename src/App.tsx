@@ -815,7 +815,7 @@ function Checkout() {
                       <p className="font-bold text-black dark:text-white">Scan QRIS Papua Creative Economy</p>
                       <div className="bg-white border-2 border-stone-200 rounded-3xl p-6 mx-auto w-full max-w-[300px] flex items-center justify-center">
                         <div className="text-center w-full">
-                          <img src="/qris.webp" alt="QRIS PACE" className="w-full h-auto object-contain rounded-xl mb-3" />
+                          <img src="/qris.jpg" alt="QRIS PACE" className="w-full h-auto object-contain rounded-xl mb-3" />
                           <p className="text-xs text-stone-400 font-medium">QRIS Nasional — PACE</p>
                         </div>
                       </div>

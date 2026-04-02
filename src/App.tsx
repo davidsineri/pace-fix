@@ -719,10 +719,10 @@ function Checkout() {
               </div>
             </div>
             <button 
-              onClick={() => setShowPaymentModal(true)}
-              className="nike-button w-full py-5 text-lg"
+              onClick={() => { setShowPaymentModal(true); setPaymentStep(2); setSelectedMethod('qris'); }}
+              className="nike-button w-full py-5 text-lg flex items-center justify-center gap-3"
             >
-              Pilih Pembayaran
+              <span>📱</span> Bayar via QRIS
             </button>
           </div>
           
@@ -758,7 +758,7 @@ function Checkout() {
                 </p>
                 <p className="text-2xl font-black text-black dark:text-white">Rp {finalTotal.toLocaleString('id-ID')}</p>
               </div>
-              <button onClick={() => { setShowPaymentModal(false); setPaymentStep(1); setProofImage(''); setSelectedMethod(null); }} className="w-10 h-10 bg-white dark:bg-stone-700 rounded-full flex items-center justify-center shadow-sm text-stone-400 hover:text-black dark:hover:text-white transition-colors">
+              <button onClick={() => { setShowPaymentModal(false); setPaymentStep(2); setProofImage(''); setSelectedMethod('qris'); }} className="w-10 h-10 bg-white dark:bg-stone-700 rounded-full flex items-center justify-center shadow-sm text-stone-400 hover:text-black dark:hover:text-white transition-colors">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
               </button>
             </div>
@@ -812,29 +812,12 @@ function Checkout() {
               {paymentStep === 2 && (
                 <>
                     <div className="text-center space-y-4">
-                      <p className="font-bold text-black dark:text-white">Scan QR Code GoPay PACE</p>
-                      <div className="bg-white border-2 border-stone-200 rounded-3xl p-6 mx-auto w-64 h-64 flex items-center justify-center">
-                        <div className="text-center">
-                          <div className="w-40 h-40 bg-stone-100 rounded-2xl flex items-center justify-center mb-3 mx-auto relative overflow-hidden">
-                            {/* QR Placeholder */}
-                            <div className="grid grid-cols-8 gap-[2px] w-32 h-32">
-                              {Array.from({length: 64}).map((_, i) => (
-                                <div key={i} className={`w-full aspect-square rounded-[1px] ${
-                                  Math.random() > 0.5 ? 'bg-black' : 'bg-white'
-                                }`} />
-                              ))}
-                            </div>
-                            <div className="absolute inset-0 flex items-center justify-center">
-                              <div className="bg-white p-1 rounded-lg shadow-sm">
-                                <span className="text-lg font-black italic">P</span>
-                              </div>
-                            </div>
-                          </div>
-                          <p className="text-xs text-stone-400 font-medium">QRIS — GoPay PACE</p>
+                      <p className="font-bold text-black dark:text-white">Scan QRIS Papua Creative Economy</p>
+                      <div className="bg-white border-2 border-stone-200 rounded-3xl p-6 mx-auto w-full max-w-[300px] flex items-center justify-center">
+                        <div className="text-center w-full">
+                          <img src="/qris.webp" alt="QRIS PACE" className="w-full h-auto object-contain rounded-xl mb-3" />
+                          <p className="text-xs text-stone-400 font-medium">QRIS Nasional — PACE</p>
                         </div>
-                      </div>
-                      <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 p-3 rounded-2xl">
-                        <p className="text-xs text-yellow-800 dark:text-yellow-300 font-medium">QR Code ini adalah placeholder. Akan diganti dengan QR GoPay PACE asli.</p>
                       </div>
                     </div>
 
@@ -881,7 +864,7 @@ function Checkout() {
                           : 'bg-emerald-600 text-white hover:bg-emerald-700'
                       }`}
                     >
-                      {uploadingProof ? 'Mengirim...' : 'Konfirmasi Sudah Bayar'}
+                      {uploadingProof ? 'Mengirim...' : '📤 Kirim Bukti Pembayaran'}
                     </button>
                   </div>
                 </>

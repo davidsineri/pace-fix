@@ -19,7 +19,15 @@ export default function SellerDashboard() {
   const [chatInput, setChatInput] = useState('');
   const [isChatLoading, setIsChatLoading] = useState(false);
 
-  const [newShop, setNewShop] = useState({ name: '', description: '' });
+  const [newShop, setNewShop] = useState({ 
+    name: '', 
+    description: '',
+    ownerName: '',
+    paymentMethod: 'GoPay',
+    accountNumber: '',
+    bankName: '',
+    whatsapp: ''
+  });
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [newProduct, setNewProduct] = useState({
@@ -88,11 +96,23 @@ export default function SellerDashboard() {
     if (!user) return;
     setIsSubmitting(true);
     try {
-      const { error } = await supabase
+      const { error, data: shopData } = await supabase
         .from('shops')
-        .insert([{ user_id: user.id, name: newShop.name, description: newShop.description }]);
+        .insert([{ user_id: user.id, name: newShop.name, description: newShop.description }])
+        .select()
+        .single();
       
       if (error) throw error;
+      // Save payment info
+      if (shopData) {
+        localStorage.setItem(`pace_bank_${shopData.id}`, JSON.stringify({
+          bankName: newShop.paymentMethod === 'GoPay' ? 'GoPay' : newShop.bankName,
+          accountNumber: newShop.accountNumber,
+          accountHolder: newShop.ownerName,
+          whatsapp: newShop.whatsapp,
+          method: newShop.paymentMethod
+        }));
+      }
       await refreshShop();
     } catch (error) {
       console.error('Error creating shop:', error);
@@ -256,6 +276,14 @@ export default function SellerDashboard() {
             <h1 className="text-3xl font-black italic mb-4">Buka Toko Anda</h1>
             <p className="text-stone-500 mb-8">Mulai berjualan produk kreatif Papua Anda ke seluruh dunia.</p>
             
+            {/* Komisi Info Box */}
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-left mb-2">
+              <p className="text-sm font-black text-amber-800 mb-1">💡 Informasi Komisi Platform</p>
+              <p className="text-xs text-amber-700 leading-relaxed">
+                PACE memotong <span className="font-black">komisi 10%</span> dari subtotal produk (tidak termasuk ongkos kirim) secara otomatis saat pencairan dana. Sisa <span className="font-black">90%</span> akan ditransfer ke rekening / GoPay Anda.
+              </p>
+            </div>
+
             <form onSubmit={handleCreateShop} className="max-w-md mx-auto space-y-4 text-left">
               <div>
                 <label className="block text-xs font-black uppercase tracking-widest text-stone-500 mb-2">Nama Toko</label>
@@ -274,14 +302,96 @@ export default function SellerDashboard() {
                   required
                   value={newShop.description}
                   onChange={(e) => setNewShop({ ...newShop, description: e.target.value })}
-                  className="w-full p-4 rounded-2xl bg-stone-50 border-2 border-stone-100 focus:border-black outline-none transition-all h-32 resize-none"
+                  className="w-full p-4 rounded-2xl bg-stone-50 border-2 border-stone-100 focus:border-black outline-none transition-all h-24 resize-none"
                   placeholder="Ceritakan tentang toko Anda..."
                 />
               </div>
+
+              <div className="border-t border-stone-200 pt-4">
+                <p className="text-xs font-black uppercase tracking-widest text-stone-400 mb-3">Data Rekening Pencairan Dana</p>
+
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-black uppercase tracking-widest text-stone-500 mb-2">Nama Pemilik Rekening</label>
+                    <input
+                      type="text"
+                      required
+                      value={newShop.ownerName}
+                      onChange={(e) => setNewShop({ ...newShop, ownerName: e.target.value })}
+                      className="w-full p-4 rounded-2xl bg-stone-50 border-2 border-stone-100 focus:border-black outline-none transition-all"
+                      placeholder="Nama sesuai rekening / GoPay"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-black uppercase tracking-widest text-stone-500 mb-2">Metode Pencairan</label>
+                    <div className="grid grid-cols-2 gap-3">
+                      {['GoPay', 'Bank'].map((m) => (
+                        <button
+                          key={m}
+                          type="button"
+                          onClick={() => setNewShop({ ...newShop, paymentMethod: m })}
+                          className={`py-3 rounded-2xl font-black text-sm border-2 transition-all ${
+                            newShop.paymentMethod === m
+                              ? 'border-black bg-black text-white'
+                              : 'border-stone-200 bg-stone-50 text-stone-600 hover:border-stone-400'
+                          }`}
+                        >
+                          {m === 'GoPay' ? '📱 GoPay' : '🏦 Bank'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-black uppercase tracking-widest text-stone-500 mb-2">
+                      {newShop.paymentMethod === 'GoPay' ? 'Nomor GoPay' : 'Nomor Rekening'}
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={newShop.accountNumber}
+                      onChange={(e) => setNewShop({ ...newShop, accountNumber: e.target.value })}
+                      className="w-full p-4 rounded-2xl bg-stone-50 border-2 border-stone-100 focus:border-black outline-none transition-all"
+                      placeholder={newShop.paymentMethod === 'GoPay' ? '08xx-xxxx-xxxx' : 'Contoh: 1234567890'}
+                    />
+                  </div>
+
+                  {newShop.paymentMethod === 'Bank' && (
+                    <div>
+                      <label className="block text-xs font-black uppercase tracking-widest text-stone-500 mb-2">Nama Bank</label>
+                      <select
+                        required={newShop.paymentMethod === 'Bank'}
+                        value={newShop.bankName}
+                        onChange={(e) => setNewShop({ ...newShop, bankName: e.target.value })}
+                        className="w-full p-4 rounded-2xl bg-stone-50 border-2 border-stone-100 focus:border-black outline-none transition-all"
+                      >
+                        <option value="">Pilih Bank</option>
+                        {['BCA', 'Mandiri', 'BRI', 'BNI', 'BTN', 'CIMB Niaga', 'Bank Papua'].map(b => (
+                          <option key={b} value={b}>{b}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-xs font-black uppercase tracking-widest text-stone-500 mb-2">Nomor WhatsApp</label>
+                    <input
+                      type="tel"
+                      required
+                      value={newShop.whatsapp}
+                      onChange={(e) => setNewShop({ ...newShop, whatsapp: e.target.value })}
+                      className="w-full p-4 rounded-2xl bg-stone-50 border-2 border-stone-100 focus:border-black outline-none transition-all"
+                      placeholder="08xx-xxxx-xxxx"
+                    />
+                  </div>
+                </div>
+              </div>
+
               <button
                 type="submit"
-                disabled={isSubmitting}
-                className="w-full bg-black text-white py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-stone-800 transition-colors disabled:opacity-50"
+                disabled={isSubmitting || !newShop.ownerName || !newShop.accountNumber || !newShop.whatsapp || (newShop.paymentMethod === 'Bank' && !newShop.bankName)}
+                className="w-full bg-black text-white py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-stone-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {isSubmitting ? 'Membuka Toko...' : 'Buka Toko Sekarang'}
               </button>

@@ -175,7 +175,7 @@ export default function AdminDashboard() {
 
       {/* Tabs */}
       <div className="flex gap-3 mb-8 overflow-x-auto pb-2 scrollbar-hide">
-        {['Dashboard', 'Verifikasi', 'Pencairan Dana', 'Semua Pesanan', 'Pengguna', 'Produk'].map(tab => (
+        {['Dashboard', 'Pembayaran QRIS', 'Pencairan Dana', 'Semua Pesanan', 'Pengguna', 'Produk'].map(tab => (
           <button 
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -186,7 +186,7 @@ export default function AdminDashboard() {
             }`}
           >
             {tab}
-            {tab === 'Verifikasi' && pendingOrders.length > 0 && (
+            {tab === 'Pembayaran QRIS' && pendingOrders.length > 0 && (
               <span className="ml-2 w-5 h-5 bg-red-500 text-white text-[10px] font-black rounded-full inline-flex items-center justify-center">
                 {pendingOrders.length}
               </span>
@@ -242,8 +242,8 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {/* VERIFIKASI TAB — Fase 2 */}
-      {activeTab === 'Verifikasi' && (
+      {/* PEMBAYARAN QRIS TAB — Fase 2 */}
+      {activeTab === 'Pembayaran QRIS' && (
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-black italic dark:text-white">Verifikasi Pembayaran</h2>
@@ -395,6 +395,19 @@ export default function AdminDashboard() {
               const subtotal = total - shippingCost;
               const commission = Math.round(subtotal * 0.10);
               const sellerAmount = total - commission;
+
+              // Try to get seller bank info from localStorage (keyed by user_id as fallback)
+              let sellerBank: any = null;
+              try {
+                // Try all localStorage keys that start with pace_bank_
+                for (let i = 0; i < localStorage.length; i++) {
+                  const key = localStorage.key(i);
+                  if (key && key.startsWith('pace_bank_')) {
+                    sellerBank = JSON.parse(localStorage.getItem(key) || '{}');
+                    break;
+                  }
+                }
+              } catch(e) {}
               
               return (
                 <div key={order.id} className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-[32px] p-8 shadow-sm">
@@ -441,6 +454,36 @@ export default function AdminDashboard() {
                           <p className="text-stone-600 dark:text-stone-300 font-mono truncate">{order.user_id}</p>
                         </div>
                       </div>
+                      {/* Seller payment info */}
+                      {sellerBank && (
+                        <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-2xl p-4 space-y-2">
+                          <p className="text-xs font-black text-emerald-700 dark:text-emerald-400 uppercase tracking-widest">Transfer Ke</p>
+                          <div className="space-y-1">
+                            <div className="flex justify-between text-sm">
+                              <span className="text-stone-500">Metode</span>
+                              <span className="font-black">{sellerBank.bankName || sellerBank.method || '—'}</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                              <span className="text-stone-500">No. Rekening / HP</span>
+                              <span className="font-mono font-bold">{sellerBank.accountNumber || '—'}</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                              <span className="text-stone-500">Atas Nama</span>
+                              <span className="font-bold">{sellerBank.accountHolder || '—'}</span>
+                            </div>
+                            {sellerBank.whatsapp && (
+                              <a
+                                href={`https://wa.me/62${sellerBank.whatsapp.replace(/^0/, '').replace(/\D/g, '')}?text=Halo%20${encodeURIComponent(sellerBank.accountHolder || 'Penjual')}%2C%20kami%20dari%20PACE%20akan%20mentransfer%20dana%20Rp%20${sellerAmount.toLocaleString('id-ID')}%20(setelah%20komisi%2010%25)%20untuk%20pesanan%20%23${order.id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center justify-center gap-2 w-full mt-2 py-2 bg-green-500 text-white rounded-xl font-bold text-xs hover:bg-green-600 transition-colors"
+                              >
+                                💬 Hubungi via WhatsApp
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     <div className="md:w-48 shrink-0 space-y-3">
@@ -450,7 +493,7 @@ export default function AdminDashboard() {
                         className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-emerald-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                       >
                         <DollarSign size={18} />
-                        {processingId === order.id ? 'Proses...' : 'TANDAI SUDAH DIBAYAR'}
+                        {processingId === order.id ? 'Proses...' : 'TANDAI SUDAH DITRANSFER'}
                       </button>
                     </div>
                   </div>

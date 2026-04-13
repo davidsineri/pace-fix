@@ -9,6 +9,7 @@ import { CartProvider, useCart } from './contexts/CartContext';
 import { WishlistProvider, useWishlist } from './contexts/WishlistContext';
 import { ToastProvider } from './components/ui/Toast';
 import { motion, AnimatePresence } from 'motion/react';
+import { formatRupiah } from './lib/format';
 import Login from './components/Auth/Login';
 import Register from './components/Auth/Register';
 import ProductList from './components/Products/ProductList';
@@ -56,9 +57,11 @@ function Navbar() {
         <div className="flex justify-between items-center h-20 gap-4">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2 group shrink-0">
-            <div className="w-10 h-10 bg-black dark:bg-white rounded-xl flex items-center justify-center group-hover:rotate-12 transition-transform">
-              <span className="text-white dark:text-black font-black text-xl italic">P</span>
-            </div>
+            <img 
+              src="/logo-pace.png" 
+              alt="PACE" 
+              className="w-10 h-10 object-contain rounded-xl group-hover:rotate-12 transition-transform" 
+            />
             <span className="text-2xl font-black tracking-tighter text-black dark:text-white italic">PACE</span>
           </Link>
 
@@ -377,7 +380,40 @@ function Checkout() {
     { city_id: '444', city_name: 'Surabaya', type: 'Kota' },
     { city_id: '23', city_name: 'Bandung', type: 'Kota' },
     { city_id: '210', city_name: 'Makassar', type: 'Kota' },
-    { city_id: '430', city_name: 'Sorong', type: 'Kota' }
+    { city_id: '430', city_name: 'Sorong', type: 'Kota' },
+    { city_id: '278', city_name: 'Medan', type: 'Kota' },
+    { city_id: '327', city_name: 'Palembang', type: 'Kota' },
+    { city_id: '399', city_name: 'Semarang', type: 'Kota' },
+    { city_id: '501', city_name: 'Yogyakarta', type: 'Kota' },
+    { city_id: '114', city_name: 'Denpasar', type: 'Kota' },
+    { city_id: '38', city_name: 'Balikpapan', type: 'Kota' },
+    { city_id: '42', city_name: 'Banjarmasin', type: 'Kota' },
+    { city_id: '255', city_name: 'Manado', type: 'Kota' },
+    { city_id: '19', city_name: 'Ambon', type: 'Kota' },
+    { city_id: '223', city_name: 'Kupang', type: 'Kota' },
+    { city_id: '266', city_name: 'Mataram', type: 'Kota' },
+    { city_id: '350', city_name: 'Pontianak', type: 'Kota' },
+    { city_id: '388', city_name: 'Samarinda', type: 'Kota' },
+    { city_id: '330', city_name: 'Palu', type: 'Kota' },
+    { city_id: '180', city_name: 'Kendari', type: 'Kota' },
+    { city_id: '137', city_name: 'Gorontalo', type: 'Kota' },
+    { city_id: '48', city_name: 'Batam', type: 'Kota' },
+    { city_id: '331', city_name: 'Pekanbaru', type: 'Kota' },
+    { city_id: '318', city_name: 'Padang', type: 'Kota' },
+    { city_id: '21', city_name: 'Bandar Lampung', type: 'Kota' },
+    { city_id: '252', city_name: 'Malang', type: 'Kota' },
+    { city_id: '445', city_name: 'Solo (Surakarta)', type: 'Kota' },
+    { city_id: '105', city_name: 'Cirebon', type: 'Kota' },
+    { city_id: '54', city_name: 'Bekasi', type: 'Kota' },
+    { city_id: '438', city_name: 'Tangerang', type: 'Kota' },
+    { city_id: '115', city_name: 'Depok', type: 'Kota' },
+    { city_id: '82', city_name: 'Bogor', type: 'Kota' },
+    { city_id: '279', city_name: 'Merauke', type: 'Kota' },
+    { city_id: '281', city_name: 'Timika (Mimika)', type: 'Kota' },
+    { city_id: '288', city_name: 'Nabire', type: 'Kota' },
+    { city_id: '155', city_name: 'Wamena', type: 'Kota' },
+    { city_id: '256', city_name: 'Manokwari', type: 'Kota' },
+    { city_id: '65', city_name: 'Biak', type: 'Kota' }
   ]);
   const [loadingCities, setLoadingCities] = useState(false);
   const [destinationCity, setDestinationCity] = useState<string>('151'); // Jakarta
@@ -560,7 +596,7 @@ function Checkout() {
                 <div>
                   <div className="flex justify-between items-start mb-2">
                     <h4 className="text-2xl font-black text-black italic">{item.name}</h4>
-                    <p className="text-xl font-black text-black">Rp {(item.price * item.quantity).toLocaleString('id-ID')}</p>
+                    <p className="text-xl font-black text-black">{formatRupiah(item.price * item.quantity)}</p>
                   </div>
                   <p className="text-stone-500 font-medium mb-4">{item.category}</p>
                   
@@ -690,7 +726,7 @@ function Checkout() {
             <div className="space-y-4">
                <div className="flex justify-between font-medium text-stone-600 dark:text-stone-400">
                 <span>Subtotal</span>
-                <span>Rp {totalPrice.toLocaleString('id-ID')}</span>
+                <span>{formatRupiah(totalPrice)}</span>
               </div>
               {hasPhysicalItems && (
                 <div className="flex flex-col gap-1">
@@ -699,7 +735,7 @@ function Checkout() {
                     {loadingShipping ? (
                       <span className="animate-pulse">Menghitung...</span>
                     ) : (
-                      <span>Rp {totalShipping.toLocaleString('id-ID')}</span>
+                      <span>{formatRupiah(totalShipping)}</span>
                     )}
                   </div>
                   <div className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">
@@ -710,12 +746,12 @@ function Checkout() {
               {tipAmount > 0 && (
                 <div className="flex justify-between font-medium text-yellow-600 dark:text-yellow-500">
                   <span>Tip Pengrajin</span>
-                  <span>Rp {tipAmount.toLocaleString('id-ID')}</span>
+                  <span>{formatRupiah(tipAmount)}</span>
                 </div>
               )}
               <div className="pt-4 border-t border-stone-200 dark:border-stone-800 flex justify-between text-xl font-black text-black dark:text-white">
                 <span>Total</span>
-                <span>Rp {finalTotal.toLocaleString('id-ID')}</span>
+                <span>{formatRupiah(finalTotal)}</span>
               </div>
             </div>
             <button 
@@ -756,7 +792,7 @@ function Checkout() {
                 <p className="text-sm font-bold text-stone-400 uppercase tracking-widest">
                   {paymentStep === 1 ? 'Pilih Metode' : paymentStep === 2 ? 'Upload Bukti' : paymentStep === 3 ? 'Menunggu Verifikasi' : 'Selesai'}
                 </p>
-                <p className="text-2xl font-black text-black dark:text-white">Rp {finalTotal.toLocaleString('id-ID')}</p>
+                <p className="text-2xl font-black text-black dark:text-white">{formatRupiah(finalTotal)}</p>
               </div>
               <button onClick={() => { setShowPaymentModal(false); setPaymentStep(2); setProofImage(''); setSelectedMethod('qris'); }} className="w-10 h-10 bg-white dark:bg-stone-700 rounded-full flex items-center justify-center shadow-sm text-stone-400 hover:text-black dark:hover:text-white transition-colors">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
@@ -918,13 +954,11 @@ function Checkout() {
 }
 
 function Profile() {
-  const { user } = useAuth();
+  const { user, store } = useAuth();
   const { wishlistItems, removeFromWishlist } = useWishlist();
   const [activeTab, setActiveTab] = useState('Pesanan Saya');
   const [orders, setOrders] = useState<any[]>([]);
-  const [isStoreSubmitted, setIsStoreSubmitted] = useState(false);
   const navigate = useNavigate();
-  const [isSeller, setIsSeller] = useState(false);
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -939,10 +973,6 @@ function Profile() {
       }
     };
     fetchOrders();
-
-    if (localStorage.getItem('pace_is_seller') === 'true') {
-      setIsSeller(true);
-    }
   }, [user?.id]);
 
   const tabs = [
@@ -992,7 +1022,7 @@ function Profile() {
                 <div className="p-8 bg-emerald-50 rounded-[40px] border border-emerald-100">
                   <p className="text-xs font-black text-emerald-600 uppercase tracking-widest mb-2">Total Belanja</p>
                   <h4 className="text-4xl font-black text-black italic">
-                    Rp {orders.reduce((acc, order) => acc + order.total, 0).toLocaleString('id-ID')}
+                    {formatRupiah(orders.reduce((acc, order) => acc + order.total, 0))}
                   </h4>
                 </div>
                 <div className="p-8 bg-stone-50 rounded-[40px] border border-stone-100">
@@ -1106,7 +1136,7 @@ function Profile() {
                             )}
                             <div className="flex-grow">
                               <h5 className="font-black text-black dark:text-white italic">{item.name}</h5>
-                              <p className="text-sm text-stone-500">{item.quantity || 1} x Rp {(item.price || 0).toLocaleString('id-ID')}</p>
+                              <p className="text-sm text-stone-500">{item.quantity || 1} x {formatRupiah(item.price || 0)}</p>
                             </div>
                           </div>
                         ))}
@@ -1115,7 +1145,7 @@ function Profile() {
                       {/* Total */}
                       <div className="mt-6 pt-6 border-t border-stone-100 dark:border-stone-800 flex justify-between items-center">
                         <span className="font-bold text-stone-500 dark:text-stone-400">Total Pembayaran</span>
-                        <span className="text-2xl font-black text-black dark:text-white italic">Rp {(order.total || 0).toLocaleString('id-ID')}</span>
+                        <span className="text-2xl font-black text-black dark:text-white italic">{formatRupiah(order.total || 0)}</span>
                       </div>
                     </div>
                     );
@@ -1138,7 +1168,7 @@ function Profile() {
                       <img src={item.image_url} alt={item.name} className="w-24 h-24 rounded-2xl object-cover" referrerPolicy="no-referrer" />
                       <div className="flex flex-col justify-center flex-grow">
                         <h4 className="font-black text-black italic">{item.name}</h4>
-                        <p className="text-emerald-600 font-bold text-sm mb-2">Rp {item.price.toLocaleString('id-ID')}</p>
+                        <p className="text-emerald-600 font-bold text-sm mb-2">{formatRupiah(item.price)}</p>
                         <div className="flex gap-2">
                           <Link to={`/product/${item.id}`} className="text-xs font-bold bg-black text-white px-4 py-2 rounded-full">Lihat</Link>
                           <button onClick={() => removeFromWishlist(item.id)} className="text-xs font-bold border border-stone-200 px-4 py-2 rounded-full text-stone-500 hover:text-red-500 hover:border-red-200 transition-colors">Hapus</button>
@@ -1157,7 +1187,7 @@ function Profile() {
                 <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto text-emerald-600">
                   <ShoppingBag size={40} />
                 </div>
-                {isSeller ? (
+                {store ? (
                   <>
                     <h3 className="text-3xl font-black text-black italic">Toko Anda Telah Aktif</h3>
                     <p className="text-stone-500 font-medium">
@@ -1167,48 +1197,23 @@ function Profile() {
                       Masuk ke Dashboard Toko
                     </button>
                   </>
-                ) : isStoreSubmitted ? (
-                  <div className="mt-8 p-6 bg-emerald-100 text-emerald-800 rounded-2xl border border-emerald-200 text-left">
-                    <h4 className="font-bold text-lg mb-2">Pendaftaran Berhasil! 🎉</h4>
-                    <p>Toko Anda telah disetujui. Anda sekarang dapat mulai berjualan.</p>
-                    <button onClick={() => navigate('/seller')} className="w-full bg-emerald-600 text-white font-bold py-3 rounded-xl hover:bg-emerald-700 transition-colors mt-4">
-                      Masuk ke Dashboard Toko
-                    </button>
-                  </div>
                 ) : (
                   <>
                     <h3 className="text-3xl font-black text-black italic">Jual Produk Asli Papua Anda</h3>
                     <p className="text-stone-500 font-medium">
                       Bergabunglah dengan ratusan pengrajin dan UMKM Papua lainnya. Jangkau pasar yang lebih luas dan lestarikan warisan budaya melalui karya Anda.
                     </p>
-                    <form className="space-y-4 text-left mt-8" onSubmit={(e) => { 
-                      e.preventDefault(); 
-                      setIsStoreSubmitted(true); 
-                      setIsSeller(true);
-                      localStorage.setItem('pace_is_seller', 'true');
-                    }}>
-                      <div>
-                        <label className="block text-sm font-bold text-stone-700 mb-2">Nama Toko / UMKM</label>
-                        <input type="text" required className="w-full p-4 rounded-2xl border border-stone-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all" placeholder="Contoh: Noken Indah Wamena" />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-bold text-stone-700 mb-2">Kategori Utama</label>
-                        <select className="w-full p-4 rounded-2xl border border-stone-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all bg-white">
-                          <option>Kriya & Kerajinan</option>
-                          <option>Fashion & Kain</option>
-                          <option>Seni & Ukiran</option>
-                          <option>Makanan & Minuman</option>
-                          <option>Hasil Bumi</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-bold text-stone-700 mb-2">Nomor WhatsApp</label>
-                        <input type="tel" required className="w-full p-4 rounded-2xl border border-stone-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all" placeholder="08xx-xxxx-xxxx" />
-                      </div>
-                      <button type="submit" className="w-full bg-black text-white font-bold py-4 rounded-2xl hover:bg-stone-800 transition-colors mt-4">
-                        Ajukan Pendaftaran Toko
+                    <div className="mt-8 space-y-4">
+                      <p className="text-sm text-stone-500 bg-stone-100 p-4 rounded-2xl">
+                        Anda belum memiliki toko. Silakan klik tombol di bawah untuk mulai mendaftarkan toko Anda secara resmi.
+                      </p>
+                      <button 
+                        onClick={() => navigate('/seller')} 
+                        className="w-full bg-black text-white font-bold py-4 rounded-2xl hover:bg-stone-800 transition-colors"
+                      >
+                        Mulai Buka Toko
                       </button>
-                    </form>
+                    </div>
                   </>
                 )}
               </div>
